@@ -1,9 +1,9 @@
-import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { ContactShadows, Environment, Grid, OrbitControls } from "@react-three/drei";
+import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { Activity, Crosshair, Gamepad2, RotateCcw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
 import { Euler, Quaternion } from "three";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import "./styles.css";
@@ -160,8 +160,8 @@ function ProceduralProbe() {
   );
 }
 
-function StlProbe() {
-  const geometry = useLoader(STLLoader, "/models/transducer.stl");
+function StlProbe({ modelPath }) {
+  const geometry = useLoader(STLLoader, modelPath);
   geometry.center();
 
   return (
@@ -171,7 +171,7 @@ function StlProbe() {
   );
 }
 
-function Probe({ pose, hasStl, modelAlignment }) {
+function Probe({ pose, hasStl, modelAlignment, modelPath }) {
   const group = useRef(null);
   const targetQuaternion = useRef(new Quaternion());
 
@@ -187,7 +187,7 @@ function Probe({ pose, hasStl, modelAlignment }) {
   return (
     <group ref={group}>
       <group rotation={[modelAlignment.x, modelAlignment.y, modelAlignment.z]}>
-        <Suspense fallback={<ProceduralProbe />}>{hasStl ? <StlProbe /> : <ProceduralProbe />}</Suspense>
+        <Suspense fallback={<ProceduralProbe />}>{hasStl ? <StlProbe modelPath={modelPath} /> : <ProceduralProbe />}</Suspense>
       </group>
     </group>
   );
@@ -212,14 +212,14 @@ function ReferenceAnchors() {
   );
 }
 
-function Scene({ pose, hasStl, modelAlignment }) {
+function Scene({ pose, hasStl, modelAlignment, modelPath }) {
   return (
     <Canvas camera={{ position: [3.2, 2.4, 4.2], fov: 44 }} shadows>
       <color attach="background" args={["#eef3f4"]} />
       <ambientLight intensity={0.75} />
       <directionalLight position={[4, 5, 3]} intensity={1.8} castShadow />
       <ReferenceAnchors />
-      <Probe pose={pose} hasStl={hasStl} modelAlignment={modelAlignment} />
+      <Probe pose={pose} hasStl={hasStl} modelAlignment={modelAlignment} modelPath={modelPath} />
       <Grid args={[7, 7]} position={[0, -1.05, 0]} cellColor="#b9c9ce" sectionColor="#6f8f99" fadeDistance={14} />
       <ContactShadows position={[0, -1.02, 0]} opacity={0.28} blur={2.4} />
       <Environment preset="city" />
@@ -237,13 +237,16 @@ function DesktopApp() {
   const [calibratedAt, setCalibratedAt] = useState(null);
   const [modelAlignment] = useState(DEFAULT_MODEL_ALIGNMENT);
   const [hasStl, setHasStl] = useState(false);
+
+  const [modelPath, setModelPath] = useState("/models/p1_left_hippocampus.stl");
+
   const phoneUrl = `${window.location.origin}/controller/${room}`;
 
   useEffect(() => {
-    fetch("/models/transducer.stl", { method: "HEAD" })
+    fetch(modelPath, { method: "HEAD" })
       .then((response) => setHasStl(response.ok))
       .catch(() => setHasStl(false));
-  }, []);
+  }, [modelPath]);
 
   const handleMessage = useCallback(
     (message) => {
@@ -279,7 +282,7 @@ function DesktopApp() {
   return (
     <main className="shell">
       <section className="viewer">
-        <Scene pose={pose} hasStl={hasStl} modelAlignment={modelAlignment} />
+        <Scene pose={pose} hasStl={hasStl} modelAlignment={modelAlignment} modelPath={modelPath}/>
       </section>
       <aside className="panel">
         <div className="brand">
