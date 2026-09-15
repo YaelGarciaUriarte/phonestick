@@ -238,7 +238,7 @@ function DesktopApp() {
   const [modelAlignment] = useState(DEFAULT_MODEL_ALIGNMENT);
   const [hasStl, setHasStl] = useState(false);
 
-  const [modelPath, setModelPath] = useState("/models/p1_left_hippocampus.stl");
+  const [modelPath, setModelPath] = useState("/shared/Paciente1_left_hippocampus.stl");
 
   const phoneUrl = `${window.location.origin}/controller/${room}`;
 
