@@ -194,3 +194,25 @@ button {
     border-top: 1px solid #ccdadd;
   }
 }
+.structure-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.structure-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.structure-field select {
+  width: 100%;
+  padding: 7px 8px;
+}
+
+.structure-controls button {
+  padding: 7px 10px;
+  cursor: pointer;
+}

@@ -9,6 +9,7 @@ services:
     volumes:
       - ./backend:/app/backend
       - ./requirements.txt:/app/requirements.txt
+      - pps_shared:/shared:ro
     working_dir: /app/backend
 
   frontend:
