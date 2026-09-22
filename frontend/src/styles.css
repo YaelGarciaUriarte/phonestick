@@ -23,12 +23,14 @@ button {
 .shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .viewer {
   position: relative;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .panel {
@@ -38,6 +40,8 @@ button {
   border-left: 1px solid #ccdadd;
   background: #f8fbfb;
   padding: 26px;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .brand {
