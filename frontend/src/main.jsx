@@ -14,7 +14,7 @@ const NEUTRAL_POSE = {
   quaternion: { x: 0, y: 0, z: 0, w: 1 },
   position: { x: 0, y: 0, z: 0 },
 };
-const DEFAULT_MODEL_ALIGNMENT = { x: 0, y: 0, z: Math.PI };
+const DEFAULT_MODEL_ALIGNMENT = { x: -Math.PI / 2, y: 0, z: 0 };
 const DEVICE_SCREEN_CORRECTION = new Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
 function websocketUrl(room) {
@@ -165,7 +165,7 @@ function StlProbe({ modelPath }) {
   geometry.center();
 
   return (
-    <mesh geometry={geometry} castShadow rotation={[0, 0, 0]} scale={0.018}>
+    <mesh geometry={geometry} castShadow /*rotation={[0, 0, 0]}*/ scale={0.022}>
       <meshStandardMaterial color="#B2FFFF" metalness={0.08} roughness={0.42} />
     </mesh>
   );
@@ -214,7 +214,7 @@ function ReferenceAnchors() {
 
 function Scene({ pose, hasStl, modelAlignment, modelPath }) {
   return (
-    <Canvas camera={{ position: [3.2, 2.4, 4.2], fov: 44 }} shadows>
+    <Canvas camera={{ position: [0, 0, 5], fov: 44 }} shadows>
       <color attach="background" args={["#eef3f4"]} />
       <ambientLight intensity={0.75} />
       <directionalLight position={[4, 5, 3]} intensity={1.8} castShadow />
@@ -238,7 +238,7 @@ function DesktopApp() {
   const [modelAlignment] = useState(DEFAULT_MODEL_ALIGNMENT);
   const [hasStl, setHasStl] = useState(false);
 
-  const [modelPath, setModelPath] = useState("/shared/Paciente1_left_hippocampus.stl");
+  const [modelPath, setModelPath] = useState("/shared/P4_right_amygdala.stl");
 
   const phoneUrl = `${window.location.origin}/controller/${room}`;
 
