@@ -187,7 +187,13 @@ function Probe({ pose, hasStl, modelAlignment, modelPath }) {
   return (
     <group ref={group}>
       <group rotation={[modelAlignment.x, modelAlignment.y, modelAlignment.z]}>
-        <Suspense fallback={<ProceduralProbe />}>{hasStl ? <StlProbe modelPath={modelPath} /> : <ProceduralProbe />}</Suspense>
+        <Suspense fallback={<ProceduralProbe />}>
+          {hasStl && modelPath ? (
+            <StlProbe modelPath={modelPath} />
+          ) : (
+            <ProceduralProbe />
+          )}
+        </Suspense>
       </group>
     </group>
   );
@@ -238,11 +244,107 @@ function DesktopApp() {
   const [modelAlignment] = useState(DEFAULT_MODEL_ALIGNMENT);
   const [hasStl, setHasStl] = useState(false);
 
-  const [modelPath, setModelPath] = useState("/shared/P4_right_amygdala.stl");
+  const [modelPath, setModelPath] = useState("");
+  const [structures, setStructures] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState("");
 
   const phoneUrl = `${window.location.origin}/controller/${room}`;
 
+  const patients = [
+    ...new Set(
+      structures.map((structure) => structure.split("_")[0])
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+  const getPatientStructures = (structuresList, patient) => {
+    return structuresList
+      .filter((structure) => structure.startsWith(`${patient}_`))
+      .sort((a, b) => {
+        const structureA = a.split("_").slice(2).join("_");
+        const structureB = b.split("_").slice(2).join("_");
+
+        return structureA.localeCompare(structureB);
+      });
+  };
+
+  const patientStructures = getPatientStructures(
+    structures,
+    selectedPatient
+  );
+
+  const loadStructures = () => {
+    fetch("/api/structures/")
+      .then((response) => response.json())
+      .then((data) => {
+        const newStructures = data.structures;
+        setStructures(newStructures);
+
+        if (newStructures.length === 0) {
+          setSelectedPatient("");
+          setModelPath("");
+          return;
+        }
+
+        const sortedPatients = [
+          ...new Set(
+            newStructures.map((structure) => structure.split("_")[0])
+          ),
+        ].sort((a, b) => a.localeCompare(b));
+
+        // Si el paciente actual sigue existiendo, lo mantenemos.
+        // Si no, seleccionamos el primero.
+        const patientToSelect = sortedPatients.includes(selectedPatient)
+          ? selectedPatient
+          : sortedPatients[0];
+
+        const availableStructures = getPatientStructures(
+          newStructures,
+          patientToSelect
+        );
+
+        // Si el STL que estamos viendo sigue existiendo
+        // y pertenece al paciente seleccionado, lo mantenemos.
+        const currentStructure = modelPath.replace("/shared/", "");
+
+        const structureToSelect = availableStructures.includes(currentStructure)
+          ? currentStructure
+          : availableStructures[0];
+
+        setSelectedPatient(patientToSelect);
+        setModelPath(`/shared/${structureToSelect}`);
+      })
+      .catch((error) =>
+        console.error("Error al obtener estructuras:", error)
+      );
+  };
+
+  const handlePatientChange = (event) => {
+    const patient = event.target.value;
+
+    setSelectedPatient(patient);
+
+    const patientStructures = getPatientStructures(
+      structures,
+      patient
+    );
+
+    if (patientStructures.length > 0) {
+      setModelPath(`/shared/${patientStructures[0]}`);
+    } else {
+      setModelPath("");
+    }
+  };
+
   useEffect(() => {
+    loadStructures();
+  }, []);
+
+  useEffect(() => {
+  if (!modelPath) {
+    setHasStl(false);
+    return;
+  }
+
     fetch(modelPath, { method: "HEAD" })
       .then((response) => setHasStl(response.ok))
       .catch(() => setHasStl(false));
@@ -292,7 +394,59 @@ function DesktopApp() {
             <p>Vista 3D del transductor</p>
           </div>
         </div>
+        <div className="structure-controls">
+        <div className="structure-field">
+          <label htmlFor="patient-select">Paciente</label>
 
+          <select
+            id="patient-select"
+            value={selectedPatient}
+            onChange={handlePatientChange}
+            disabled={patients.length === 0}
+          >
+            {patients.length === 0 ? (
+              <option value="">No hay pacientes disponibles</option>
+            ) : (
+              patients.map((patient) => (
+                <option key={patient} value={patient}>
+                  {patient}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+
+        <div className="structure-field">
+          <label htmlFor="structure-select">Estructura cerebral</label>
+
+          <select
+            id="structure-select"
+            value={modelPath}
+            onChange={(event) => setModelPath(event.target.value)}
+            disabled={patientStructures.length === 0}
+          >
+            {patientStructures.length === 0 ? (
+              <option value="">No hay estructuras disponibles</option>
+            ) : (
+              patientStructures.map((structure) => {
+                const parts = structure.replace(".stl", "").split("_");
+                const side = parts[1] === "left" ? "Izquierdo" : "Derecho";
+                const structureName = parts.slice(2).join(" ");
+
+                return (
+                  <option key={structure} value={`/shared/${structure}`}>
+                    {structureName} - {side}
+                  </option>
+                );
+              })
+            )}
+          </select>
+        </div>
+
+        <button type="button" onClick={loadStructures}>
+          Actualizar estructuras
+        </button>
+      </div>
         <div className="connection">
           <QRCodeSVG value={phoneUrl} size={178} level="M" includeMargin />
           <div>
