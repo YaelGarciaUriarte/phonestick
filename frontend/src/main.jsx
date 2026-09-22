@@ -220,7 +220,7 @@ function ReferenceAnchors() {
 
 function Scene({ pose, hasStl, modelAlignment, modelPath }) {
   return (
-    <Canvas camera={{ position: [0, 0, 5], fov: 44 }} shadows>
+    <Canvas camera={{ position: [0, 0, 3], fov: 44 }} shadows>
       <color attach="background" args={["#eef3f4"]} />
       <ambientLight intensity={0.75} />
       <directionalLight position={[4, 5, 3]} intensity={1.8} castShadow />
@@ -229,7 +229,7 @@ function Scene({ pose, hasStl, modelAlignment, modelPath }) {
       <Grid args={[7, 7]} position={[0, -1.05, 0]} cellColor="#b9c9ce" sectionColor="#6f8f99" fadeDistance={14} />
       <ContactShadows position={[0, -1.02, 0]} opacity={0.28} blur={2.4} />
       <Environment preset="city" />
-      <OrbitControls makeDefault enablePan={false} minDistance={2.4} maxDistance={8} />
+      <OrbitControls makeDefault enablePan={false} minDistance={2.4} maxDistance={8} target={[0, -0.2, 0]} />
     </Canvas>
   );
 }
