@@ -2,9 +2,9 @@ import { ContactShadows, Environment, Grid, OrbitControls } from "@react-three/d
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { Activity, Crosshair, Gamepad2, RotateCcw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Euler, Quaternion } from "three";
+import { Box3, Euler, Quaternion, Vector3 } from "three";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import "./styles.css";
 
@@ -14,7 +14,7 @@ const NEUTRAL_POSE = {
   quaternion: { x: 0, y: 0, z: 0, w: 1 },
   position: { x: 0, y: 0, z: 0 },
 };
-const DEFAULT_MODEL_ALIGNMENT = { x: -Math.PI / 2, y: 0, z: 0 };
+const DEFAULT_MODEL_ALIGNMENT = { x: 0, y: 0, z: 0 };
 const DEVICE_SCREEN_CORRECTION = new Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
 function websocketUrl(room) {
@@ -160,14 +160,58 @@ function ProceduralProbe() {
   );
 }
 
-function StlProbe({ modelPath }) {
-  const geometry = useLoader(STLLoader, modelPath);
-  geometry.center();
+function StlProbe({ modelPath, centered = true }) {
+  
+  const loadedGeometry = useLoader(STLLoader, modelPath);
+
+  const geometry = useMemo(() => {
+    const clonedGeometry = loadedGeometry.clone();
+
+    if (centered) {
+      clonedGeometry.center();
+    }
+
+    return clonedGeometry;
+  }, [loadedGeometry, centered]);
 
   return (
     <mesh geometry={geometry} castShadow /*rotation={[0, 0, 0]}*/ scale={0.022}>
       <meshStandardMaterial color="#B2FFFF" metalness={0.08} roughness={0.42} />
     </mesh>
+  );
+}
+
+//Funcion para centrar todo el conjunto de estructuras en modo multiple
+function MultipleStructures({ paths }) {
+  const group = useRef(null);
+  useEffect(() => {
+    if (!group.current) return;
+    // Restablecer la posición antes de calcular el nuevo centro
+    group.current.position.set(0, 0, 0);
+    group.current.updateWorldMatrix(true, true);
+    // Calcular el bounding box de todas las estructuras
+    const box = new Box3().setFromObject(group.current);
+    if (box.isEmpty()) return;
+    // Obtener el centro del conjunto
+    const center = new Vector3();
+    box.getCenter(center);
+    // Centrar todas las estructuras como un único conjunto
+    group.current.position.set(
+      -center.x,
+      -center.y,
+      -center.z
+    );
+  }, [paths]);
+  return (
+    <group ref={group}>
+      {paths.map((path) => (
+        <StlProbe
+          key={path}
+          modelPath={path}
+          centered={false}
+        />
+      ))}
+    </group>
   );
 }
 
@@ -190,14 +234,12 @@ function Probe({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedS
         <Suspense fallback={<ProceduralProbe />}>
         {visualizationMode === "individual" ? (
           hasStl && modelPath ? (
-            <StlProbe modelPath={modelPath} />
+            <StlProbe modelPath={modelPath} centered={true} />
           ) : (
             <ProceduralProbe />
           )
         ) : selectedStructures.length > 0 ? (
-          selectedStructures.map((path) => (
-            <StlProbe key={path} modelPath={path} />
-          ))
+          <MultipleStructures paths={selectedStructures} />
         ) : null}
       </Suspense>
       </group>
