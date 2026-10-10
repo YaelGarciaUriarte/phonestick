@@ -171,7 +171,7 @@ function StlProbe({ modelPath }) {
   );
 }
 
-function Probe({ pose, hasStl, modelAlignment, modelPath }) {
+function Probe({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,}) {
   const group = useRef(null);
   const targetQuaternion = useRef(new Quaternion());
 
@@ -188,12 +188,18 @@ function Probe({ pose, hasStl, modelAlignment, modelPath }) {
     <group ref={group}>
       <group rotation={[modelAlignment.x, modelAlignment.y, modelAlignment.z]}>
         <Suspense fallback={<ProceduralProbe />}>
-          {hasStl && modelPath ? (
+        {visualizationMode === "individual" ? (
+          hasStl && modelPath ? (
             <StlProbe modelPath={modelPath} />
           ) : (
             <ProceduralProbe />
-          )}
-        </Suspense>
+          )
+        ) : selectedStructures.length > 0 ? (
+          selectedStructures.map((path) => (
+            <StlProbe key={path} modelPath={path} />
+          ))
+        ) : null}
+      </Suspense>
       </group>
     </group>
   );
@@ -218,14 +224,14 @@ function ReferenceAnchors() {
   );
 }
 
-function Scene({ pose, hasStl, modelAlignment, modelPath }) {
+function Scene({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,}) {
   return (
     <Canvas camera={{ position: [0, 0, 3], fov: 44 }} shadows>
       <color attach="background" args={["#eef3f4"]} />
       <ambientLight intensity={0.75} />
       <directionalLight position={[4, 5, 3]} intensity={1.8} castShadow />
       <ReferenceAnchors />
-      <Probe pose={pose} hasStl={hasStl} modelAlignment={modelAlignment} modelPath={modelPath} />
+      <Probe pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}/>
       <Grid args={[7, 7]} position={[0, -1.05, 0]} cellColor="#b9c9ce" sectionColor="#6f8f99" fadeDistance={14} />
       <ContactShadows position={[0, -1.02, 0]} opacity={0.28} blur={2.4} />
       <Environment preset="city" />
@@ -247,6 +253,8 @@ function DesktopApp() {
   const [modelPath, setModelPath] = useState("");
   const [structures, setStructures] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState("");
+  const [visualizationMode, setVisualizationMode] = useState("individual");
+  const [selectedStructures, setSelectedStructures] = useState([]); //estructuras modo multiple
 
   const phoneUrl = `${window.location.origin}/controller/${room}`;
 
@@ -318,10 +326,21 @@ function DesktopApp() {
       );
   };
 
+  const handleStructureToggle = (path) => {
+    setSelectedStructures((current) => {
+      if (current.includes(path)) {
+        return current.filter((structure) => structure !== path);
+      }
+
+      return [...current, path];
+    });
+  };
+
   const handlePatientChange = (event) => {
     const patient = event.target.value;
 
     setSelectedPatient(patient);
+    setSelectedStructures([]);
 
     const patientStructures = getPatientStructures(
       structures,
@@ -384,7 +403,7 @@ function DesktopApp() {
   return (
     <main className="shell">
       <section className="viewer">
-        <Scene pose={pose} hasStl={hasStl} modelAlignment={modelAlignment} modelPath={modelPath}/>
+        <Scene pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}/>
       </section>
       <aside className="panel">
         <div className="brand">
@@ -415,33 +434,72 @@ function DesktopApp() {
             )}
           </select>
         </div>
-
         <div className="structure-field">
-          <label htmlFor="structure-select">Estructura cerebral</label>
+        <label>Modo de visualización</label>
 
-          <select
-            id="structure-select"
-            value={modelPath}
-            onChange={(event) => setModelPath(event.target.value)}
-            disabled={patientStructures.length === 0}
+        <div className="mode-toggle">
+          <span className={visualizationMode === "individual" ? "active-mode" : ""}>
+            Individual
+          </span>
+
+          <button
+            type="button"
+            className={`toggle-switch ${
+              visualizationMode === "multiple" ? "multiple" : ""
+            }`}
+            onClick={() =>
+              setVisualizationMode(
+                visualizationMode === "individual" ? "multiple" : "individual"
+              )
+            }
+            aria-label="Cambiar modo de visualización"
           >
-            {patientStructures.length === 0 ? (
-              <option value="">No hay estructuras disponibles</option>
-            ) : (
-              patientStructures.map((structure) => {
-                const parts = structure.replace(".stl", "").split("_");
-                const side = parts[1] === "left" ? "Izquierdo" : "Derecho";
-                const structureName = parts.slice(2).join(" ");
+            <span className="toggle-thumb" />
+          </button>
 
-                return (
-                  <option key={structure} value={`/shared/${structure}`}>
-                    {structureName} - {side}
-                  </option>
-                );
-              })
-            )}
-          </select>
+          <span className={visualizationMode === "multiple" ? "active-mode" : ""}>
+            Múltiple
+          </span>
         </div>
+      </div>
+
+      <div className="structure-field">
+        <label>Estructuras cerebrales</label>
+
+        {patientStructures.length === 0 ? (
+          <span>No hay estructuras disponibles</span>
+        ) : (
+          patientStructures.map((structure) => {
+            const parts = structure.replace(".stl", "").split("_");
+            const side = parts[1] === "left" ? "Izquierdo" : "Derecho";
+            const structureName = parts.slice(2).join(" ");
+            const path = `/shared/${structure}`;
+
+            const isChecked =
+              visualizationMode === "individual"
+                ? modelPath === path
+                : selectedStructures.includes(path);
+
+            return (
+              <label key={structure}>
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => {
+                    if (visualizationMode === "individual") {
+                      setModelPath(path);
+                    } else {
+                      handleStructureToggle(path);
+                    }
+                  }}
+                />
+
+                {structureName} - {side}
+              </label>
+            );
+          })
+        )}
+      </div>
 
         <button type="button" onClick={loadStructures}>
           Actualizar estructuras
