@@ -215,7 +215,7 @@ function MultipleStructures({ paths }) {
   );
 }
 
-function Probe({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,}) {
+function Probe({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,showHeatmap,}) {
   const group = useRef(null);
   const targetQuaternion = useRef(new Quaternion());
 
@@ -266,14 +266,14 @@ function ReferenceAnchors() {
   );
 }
 
-function Scene({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,}) {
+function Scene({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,showHeatmap,}) {
   return (
     <Canvas camera={{ position: [0, 0, 3], fov: 44 }} shadows>
       <color attach="background" args={["#eef3f4"]} />
       <ambientLight intensity={0.75} />
       <directionalLight position={[4, 5, 3]} intensity={1.8} castShadow />
       <ReferenceAnchors />
-      <Probe pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}/>
+      <Probe pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap}/>
       <Grid args={[7, 7]} position={[0, -1.05, 0]} cellColor="#b9c9ce" sectionColor="#6f8f99" fadeDistance={14} />
       <ContactShadows position={[0, -1.02, 0]} opacity={0.28} blur={2.4} />
       <Environment preset="city" />
@@ -297,6 +297,7 @@ function DesktopApp() {
   const [selectedPatient, setSelectedPatient] = useState("");
   const [visualizationMode, setVisualizationMode] = useState("individual");
   const [selectedStructures, setSelectedStructures] = useState([]); //estructuras modo multiple
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const phoneUrl = `${window.location.origin}/controller/${room}`;
 
@@ -445,7 +446,7 @@ function DesktopApp() {
   return (
     <main className="shell">
       <section className="viewer">
-        <Scene pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}/>
+        <Scene pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap}/>
       </section>
       <aside className="panel">
         <div className="brand">
@@ -489,11 +490,16 @@ function DesktopApp() {
             className={`toggle-switch ${
               visualizationMode === "multiple" ? "multiple" : ""
             }`}
-            onClick={() =>
-              setVisualizationMode(
-                visualizationMode === "individual" ? "multiple" : "individual"
-              )
-            }
+            onClick={() => {
+              const nextMode =
+                visualizationMode === "individual" ? "multiple" : "individual";
+
+              setVisualizationMode(nextMode);
+
+              if (nextMode === "multiple") {
+                setShowHeatmap(false);
+              }
+            }}
             aria-label="Cambiar modo de visualización"
           >
             <span className="toggle-thumb" />
@@ -503,6 +509,30 @@ function DesktopApp() {
             Múltiple
           </span>
         </div>
+        <div className="structure-field">
+        <label>Mapa de calor</label>
+
+        <div className="mode-toggle">
+          <span className={!showHeatmap ? "active-mode" : ""}>
+            Desactivado
+          </span>
+
+          <button
+            type="button"
+            className={`toggle-switch ${showHeatmap ? "multiple" : ""}`}
+            onClick={() => setShowHeatmap((current) => !current)}
+            disabled={visualizationMode === "multiple"}
+            aria-label="Activar o desactivar mapa de calor"
+            aria-pressed={showHeatmap}
+          >
+            <span className="toggle-thumb" />
+          </button>
+
+          <span className={showHeatmap ? "active-mode" : ""}>
+            Activado
+          </span>
+        </div>
+      </div>
       </div>
 
       <div className="structure-field">
