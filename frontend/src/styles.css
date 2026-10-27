@@ -268,3 +268,14 @@ button {
 .toggle-switch.multiple .toggle-thumb {
   transform: translateX(22px);
 }
+
+.heatmap-info {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background-color: #eaf4ff;
+  border-left: 3px solid #3b82f6;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+}
