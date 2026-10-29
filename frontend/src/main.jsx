@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Box3, Euler, Quaternion, Vector3 } from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import "./styles.css";
 
@@ -181,6 +182,33 @@ function StlProbe({ modelPath, centered = true }) {
   );
 }
 
+function HeatmapProbe({ modelPath }) {
+  const gltf = useLoader(GLTFLoader, modelPath);
+  const scene = useMemo(() => {
+    const clonedScene = gltf.scene.clone(true);
+    const box = new Box3().setFromObject(clonedScene);
+    const center = new Vector3();
+    box.getCenter(center);
+    clonedScene.position.sub(center);
+    clonedScene.traverse((object) => {
+      if (object.isMesh) {
+        object.castShadow = true;
+        object.material = object.material.clone();
+        object.material.vertexColors = true;
+        object.material.color.set("#ffffff");
+        object.material.needsUpdate = true;
+      }
+    });
+    return clonedScene;
+  }, [gltf]);
+  return (
+    <group scale={0.022}>
+      <primitive object={scene} />
+    </group>
+  );
+}
+
+
 //Funcion para centrar todo el conjunto de estructuras en modo multiple
 function MultipleStructures({ paths }) {
   const group = useRef(null);
@@ -234,7 +262,12 @@ function Probe({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedS
         <Suspense fallback={<ProceduralProbe />}>
         {visualizationMode === "individual" ? (
           hasStl && modelPath ? (
-            <StlProbe modelPath={modelPath} centered={true} />
+            showHeatmap ? (
+              <HeatmapProbe
+              modelPath={modelPath.replace(".stl", "_heatmap.glb")} />
+            ) : (
+              <StlProbe modelPath={modelPath} centered={true} />
+            )
           ) : (
             <ProceduralProbe />
           )
@@ -266,14 +299,14 @@ function ReferenceAnchors() {
   );
 }
 
-function Scene({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,showHeatmap,}) {
+function Scene({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,showHeatmap,hasHeatmap,}) {
   return (
     <Canvas camera={{ position: [0, 0, 3], fov: 44 }} shadows>
       <color attach="background" args={["#eef3f4"]} />
       <ambientLight intensity={0.75} />
       <directionalLight position={[4, 5, 3]} intensity={1.8} castShadow />
       <ReferenceAnchors />
-      <Probe pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap}/>
+      <Probe pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap && hasHeatmap}/>
       <Grid args={[7, 7]} position={[0, -1.05, 0]} cellColor="#b9c9ce" sectionColor="#6f8f99" fadeDistance={14} />
       <ContactShadows position={[0, -1.02, 0]} opacity={0.28} blur={2.4} />
       <Environment preset="city" />
@@ -298,6 +331,8 @@ function DesktopApp() {
   const [visualizationMode, setVisualizationMode] = useState("individual");
   const [selectedStructures, setSelectedStructures] = useState([]); //estructuras modo multiple
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [verifiedHeatmapPath, setVerifiedHeatmapPath] = useState("");
+  const hasHeatmap = verifiedHeatmapPath === modelPath && !!modelPath;
 
   const phoneUrl = `${window.location.origin}/controller/${room}`;
 
@@ -412,6 +447,43 @@ function DesktopApp() {
       .catch(() => setHasStl(false));
   }, [modelPath]);
 
+  // Comprobar si existe el mapa de calor GLB
+  useEffect(() => {
+    let cancelled = false;
+    setVerifiedHeatmapPath("");
+    if (!modelPath) {
+      setShowHeatmap(false);
+      return;
+    }
+    const heatmapPath = modelPath.replace(".stl", "_heatmap.glb");
+    fetch(heatmapPath, { method: "HEAD" })
+      .then((response) => {
+        const contentType = response.headers.get("content-type") || "";
+        const isValidGLB =
+          response.ok &&
+          !contentType.includes("text/html") &&
+          (
+            contentType.includes("model/gltf-binary") ||
+            contentType.includes("application/octet-stream")
+          );
+        if (!cancelled) {
+          setVerifiedHeatmapPath(isValidGLB ? modelPath : "");
+          if (!isValidGLB) {
+            setShowHeatmap(false);
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setVerifiedHeatmapPath("");
+          setShowHeatmap(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [modelPath]);
+
   const handleMessage = useCallback(
     (message) => {
       if (message.type !== "motion") return;
@@ -446,7 +518,7 @@ function DesktopApp() {
   return (
     <main className="shell">
       <section className="viewer">
-        <Scene pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap}/>
+        <Scene pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap}hasHeatmap={hasHeatmap}/>
       </section>
       <aside className="panel">
         <div className="brand">
@@ -520,8 +592,8 @@ function DesktopApp() {
           <button
             type="button"
             className={`toggle-switch ${showHeatmap ? "multiple" : ""}`}
-            onClick={() => setShowHeatmap((current) => !current)}
-            disabled={visualizationMode === "multiple"}
+            onClick={() => setShowHeatmap((current) => hasHeatmap && !current)}
+            disabled={visualizationMode === "multiple" || !hasHeatmap}
             aria-label="Activar o desactivar mapa de calor"
             aria-pressed={showHeatmap}
           >
@@ -532,6 +604,13 @@ function DesktopApp() {
             Activado
           </span>
         </div>
+        {/* Mensaje informativo para estructuras derechas */}
+        {modelPath.includes("_right_") && (
+          <p className="heatmap-info">
+            ℹ️ El mapa de calor solo está disponible para las
+            estructuras izquierdas.
+          </p>
+        )}
       </div>
       </div>
 
