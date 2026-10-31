@@ -331,6 +331,7 @@ function DesktopApp() {
   const [visualizationMode, setVisualizationMode] = useState("individual");
   const [selectedStructures, setSelectedStructures] = useState([]); //estructuras modo multiple
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showHeatmapInfo, setShowHeatmapInfo] = useState(false);
   const [verifiedHeatmapPath, setVerifiedHeatmapPath] = useState("");
   const hasHeatmap = verifiedHeatmapPath === modelPath && !!modelPath;
 
@@ -604,6 +605,57 @@ function DesktopApp() {
             Activado
           </span>
         </div>
+        
+        {showHeatmap && hasHeatmap && visualizationMode === "individual" && (
+          
+          <div className="heatmap-legend">
+            <div className="heatmap-legend-header">
+              <p className="heatmap-legend-title">Escala de colores</p>
+
+              <button
+                type="button"
+                className="heatmap-info-button"
+                onClick={() => setShowHeatmapInfo((current) => !current)}
+                aria-expanded={showHeatmapInfo}
+              >
+                ¿Qué significa?
+              </button>
+            </div>
+
+
+            <div className="heatmap-gradient" />
+
+            <div className="heatmap-legend-labels">
+              <span>Valor menor</span>
+              <span>Valor mayor</span>
+            </div>
+
+            <p className="heatmap-legend-info">
+              Los colores representan valores relativos del análisis
+              de oclusión de NORAH.
+            </p>
+            
+            {showHeatmapInfo && (
+              <div className="heatmap-explanation">
+                <p>
+                  NORAH compara estructuras cerebrales de ambos hemisferios
+                  con patrones de asimetría aprendidos a partir de sujetos sanos.
+                </p>
+                <p>
+                  El mapa de calor se genera ocultando pequeñas regiones de
+                  las imágenes y observando cómo cambia el índice NORAH.
+                  Los colores más cálidos indican valores mayores de
+                  contribución positiva dentro de la estructura visualizada.
+                </p>
+                <p>
+                  Estos colores no representan directamente lesiones
+                  ni permiten establecer un diagnóstico.
+                </p>
+              </div>
+            )}
+
+          </div>
+        )}
         {/* Mensaje informativo para estructuras derechas */}
         {modelPath.includes("_right_") && (
           <p className="heatmap-info">
