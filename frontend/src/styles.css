@@ -369,3 +369,26 @@ button {
 .heatmap-explanation p:last-child {
   margin-bottom: 0;
 }
+
+
+.heatmap-selected-value {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #eef6f8;
+  font-size: 12px;
+}
+
+.heatmap-selected-value p {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 8px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.heatmap-selected-value span {
+  font-size: 11px;
+  opacity: 0.75;
+  line-height: 1.5;
+}
+
