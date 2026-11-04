@@ -196,6 +196,10 @@ function HeatmapProbe({ modelPath, onHeatmapSelect, onHeatmapRange}) {
   const [selectedPoint, setSelectedPoint] = useState(null);
 
   useEffect(() => {
+    setSelectedPoint(null);
+  }, [modelPath]);
+
+  useEffect(() => {
     const controller = new AbortController();
     const jsonPath = modelPath.replace(".glb", ".json");
 
