@@ -30,6 +30,14 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function formatHeatmapValue(value) {
+  if (value == null || !Number.isFinite(value)) {
+    return "—";
+  }
+
+  return value.toFixed(12).replace(/\.?0+$/, "");
+}
+
 function degreesToRadians(value) {
   return (value * Math.PI) / 180;
 }
@@ -182,8 +190,63 @@ function StlProbe({ modelPath, centered = true }) {
   );
 }
 
-function HeatmapProbe({ modelPath }) {
+function HeatmapProbe({ modelPath, onHeatmapSelect, onHeatmapRange}) {
   const gltf = useLoader(GLTFLoader, modelPath);
+  const [heatmapData, setHeatmapData] = useState(null);
+  const [selectedPoint, setSelectedPoint] = useState(null);
+
+  useEffect(() => {
+    setSelectedPoint(null);
+  }, [modelPath]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const jsonPath = modelPath.replace(".glb", ".json");
+
+    setHeatmapData(null);
+    onHeatmapRange?.(null);
+
+    fetch(jsonPath, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("No se pudo cargar el JSON");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+
+        if (
+          !Array.isArray(data.values) ||
+          !Number.isFinite(data.minimum) ||
+          !Number.isFinite(data.maximum)
+        ) {
+          throw new Error("Datos del mapa de calor inválidos");
+        }
+
+        setHeatmapData(data);
+
+        onHeatmapRange?.({
+          minimum: data.minimum,
+          maximum: data.maximum,
+        });
+      })
+      .catch((error) => {
+        if (error.name === "AbortError" || controller.signal.aborted) {
+          return;
+        }
+
+        console.error("Error al cargar valores:", error);
+        setHeatmapData(null);
+        onHeatmapRange?.(null);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [modelPath, onHeatmapRange]);
+
+
   const scene = useMemo(() => {
     const clonedScene = gltf.scene.clone(true);
     const box = new Box3().setFromObject(clonedScene);
@@ -201,11 +264,87 @@ function HeatmapProbe({ modelPath }) {
     });
     return clonedScene;
   }, [gltf]);
+    
+  const handleHeatmapClick = (event) => {
+    event.stopPropagation();
+
+    if (!heatmapData) return;
+
+    const geometry = event.object.geometry;
+    const faceIndex = event.faceIndex;
+
+    if (!geometry || faceIndex == null) return;
+
+    const index = geometry.index;
+
+    const a = index ? index.getX(faceIndex * 3) : faceIndex * 3;
+    const b = index ? index.getX(faceIndex * 3 + 1) : faceIndex * 3 + 1;
+    const c = index ? index.getX(faceIndex * 3 + 2) : faceIndex * 3 + 2;
+
+    const valueA = heatmapData.values[a];
+    const valueB = heatmapData.values[b];
+    const valueC = heatmapData.values[c];
+
+    if (![valueA, valueB, valueC].every(Number.isFinite)) {
+      console.error("Valores de oclusión inválidos");
+      return;
+    }
+
+    const averageValue = (valueA + valueB + valueC) / 3;
+
+    onHeatmapSelect?.(averageValue);
+
+    const localPoint = scene.worldToLocal(
+      event.point.clone()
+    );
+
+    setSelectedPoint(localPoint.toArray());
+
+  };
+  
+  
   return (
     <group scale={0.022}>
-      <primitive object={scene} />
+      <primitive
+        object={scene}
+        onClick={handleHeatmapClick}
+      >
+        
+      {selectedPoint && (
+        <group position={selectedPoint}>
+          {/* Borde negro */}
+          <mesh
+            renderOrder={10}
+            raycast={() => null}
+          >
+            <sphereGeometry args={[1.0, 24, 24]} />
+            <meshBasicMaterial
+              color="#111111"
+              depthTest={true}
+              depthWrite={false}
+            />
+          </mesh>
+
+          {/* Centro blanco */}
+          <mesh
+            renderOrder={11}
+            raycast={() => null}
+          >
+            <sphereGeometry args={[0.7, 24, 24]} />
+            <meshBasicMaterial
+              color="#ffffff"
+              depthTest={true}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+      )}
+
+      </primitive>
     </group>
   );
+
+
 }
 
 
@@ -243,7 +382,7 @@ function MultipleStructures({ paths }) {
   );
 }
 
-function Probe({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,showHeatmap,}) {
+function Probe({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,showHeatmap, onHeatmapSelect, onHeatmapRange,}) {
   const group = useRef(null);
   const targetQuaternion = useRef(new Quaternion());
 
@@ -264,7 +403,9 @@ function Probe({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedS
           hasStl && modelPath ? (
             showHeatmap ? (
               <HeatmapProbe
-              modelPath={modelPath.replace(".stl", "_heatmap.glb")} />
+              modelPath={modelPath.replace(".stl", "_heatmap.glb")} 
+              onHeatmapSelect={onHeatmapSelect}
+              onHeatmapRange={onHeatmapRange}/>
             ) : (
               <StlProbe modelPath={modelPath} centered={true} />
             )
@@ -299,14 +440,14 @@ function ReferenceAnchors() {
   );
 }
 
-function Scene({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,showHeatmap,hasHeatmap,}) {
+function Scene({pose,hasStl,modelAlignment,modelPath,visualizationMode,selectedStructures,showHeatmap,hasHeatmap,onHeatmapSelect, onHeatmapRange,}) {
   return (
     <Canvas camera={{ position: [0, 0, 3], fov: 44 }} shadows>
       <color attach="background" args={["#eef3f4"]} />
       <ambientLight intensity={0.75} />
       <directionalLight position={[4, 5, 3]} intensity={1.8} castShadow />
       <ReferenceAnchors />
-      <Probe pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap && hasHeatmap}/>
+      <Probe pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap && hasHeatmap}onHeatmapSelect={onHeatmapSelect}onHeatmapRange={onHeatmapRange}/>
       <Grid args={[7, 7]} position={[0, -1.05, 0]} cellColor="#b9c9ce" sectionColor="#6f8f99" fadeDistance={14} />
       <ContactShadows position={[0, -1.02, 0]} opacity={0.28} blur={2.4} />
       <Environment preset="city" />
@@ -331,8 +472,11 @@ function DesktopApp() {
   const [visualizationMode, setVisualizationMode] = useState("individual");
   const [selectedStructures, setSelectedStructures] = useState([]); //estructuras modo multiple
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showHeatmapInfo, setShowHeatmapInfo] = useState(false);
+  const [selectedHeatmapValue, setSelectedHeatmapValue] = useState(null);
   const [verifiedHeatmapPath, setVerifiedHeatmapPath] = useState("");
   const hasHeatmap = verifiedHeatmapPath === modelPath && !!modelPath;
+  const [heatmapRange, setHeatmapRange] = useState(null);
 
   const phoneUrl = `${window.location.origin}/controller/${room}`;
 
@@ -436,6 +580,12 @@ function DesktopApp() {
     loadStructures();
   }, []);
 
+  // Limpiar el valor seleccionado cuando cambia la visualización
+  useEffect(() => {
+    setSelectedHeatmapValue(null);
+    setHeatmapRange(null);
+  }, [modelPath, selectedPatient, visualizationMode, showHeatmap]);
+
   useEffect(() => {
   if (!modelPath) {
     setHasStl(false);
@@ -518,7 +668,7 @@ function DesktopApp() {
   return (
     <main className="shell">
       <section className="viewer">
-        <Scene pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap}hasHeatmap={hasHeatmap}/>
+        <Scene pose={pose}hasStl={hasStl}modelAlignment={modelAlignment}modelPath={modelPath}visualizationMode={visualizationMode}selectedStructures={selectedStructures}showHeatmap={showHeatmap}hasHeatmap={hasHeatmap}onHeatmapSelect={setSelectedHeatmapValue}onHeatmapRange={setHeatmapRange}/>
       </section>
       <aside className="panel">
         <div className="brand">
@@ -604,6 +754,79 @@ function DesktopApp() {
             Activado
           </span>
         </div>
+        
+        {showHeatmap && hasHeatmap && visualizationMode === "individual" && (
+          
+          <div className="heatmap-legend">
+            <div className="heatmap-legend-header">
+              <p className="heatmap-legend-title">Escala de colores</p>
+
+              <button
+                type="button"
+                className="heatmap-info-button"
+                onClick={() => setShowHeatmapInfo((current) => !current)}
+                aria-expanded={showHeatmapInfo}
+              >
+                ¿Qué significa?
+              </button>
+            </div>
+
+
+            <div className="heatmap-gradient" />
+
+            
+            
+            <div className="heatmap-legend-labels">
+              <span>
+                Mínimo: {formatHeatmapValue(heatmapRange?.minimum)}
+              </span>
+              <span>
+                Máximo: {formatHeatmapValue(heatmapRange?.maximum)}
+              </span>
+            </div>
+
+
+            <p className="heatmap-legend-info">
+              Los colores representan valores relativos del análisis
+              de oclusión de NORAH.
+            </p>
+            
+            {showHeatmapInfo && (
+              <div className="heatmap-explanation">
+                <p>
+                  NORAH compara estructuras cerebrales de ambos hemisferios
+                  con patrones de asimetría aprendidos a partir de sujetos sanos.
+                </p>
+                <p>
+                  El mapa de calor se genera ocultando pequeñas regiones de
+                  las imágenes y observando cómo cambia el índice NORAH.
+                  Los colores más cálidos indican valores mayores de
+                  contribución positiva dentro de la estructura visualizada.
+                </p>
+                <p>
+                  Estos colores no representan directamente lesiones
+                  ni permiten establecer un diagnóstico.
+                </p>
+              </div>
+            )}
+
+          </div>
+        )}
+        
+        {showHeatmap &&
+          hasHeatmap &&
+          visualizationMode === "individual" &&
+          selectedHeatmapValue !== null && (
+            <div className="heatmap-selected-value">
+              <strong>Valor de la región seleccionada</strong>
+              <p>{formatHeatmapValue(selectedHeatmapValue)}</p>
+              <span>
+                Promedio de los valores de oclusión de los
+                tres vértices del triángulo seleccionado.
+              </span>
+            </div>
+          )}
+
         {/* Mensaje informativo para estructuras derechas */}
         {modelPath.includes("_right_") && (
           <p className="heatmap-info">

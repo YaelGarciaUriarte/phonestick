@@ -279,3 +279,116 @@ button {
   font-size: 12px;
   line-height: 1.5;
 }
+
+
+/* Leyenda del mapa de calor */
+.heatmap-legend {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.heatmap-legend-title {
+  margin: 0 0 10px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.heatmap-gradient {
+  height: 18px;
+  border-radius: 5px;
+  background: linear-gradient(
+    to right,
+    #0d0887,
+    #46039f,
+    #7201a8,
+    #9c179e,
+    #bd3786,
+    #d8576b,
+    #ed7953,
+    #fb9f3a,
+    #fdca26,
+    #f0f921
+  );
+}
+
+.heatmap-legend-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.heatmap-legend-info {
+  margin: 10px 0 0;
+  font-size: 11px;
+  opacity: 0.75;
+  line-height: 1.5;
+}
+
+
+.heatmap-legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.heatmap-legend-header .heatmap-legend-title {
+  margin: 0;
+}
+
+.heatmap-info-button {
+  padding: 4px 7px;
+  font-size: 11px;
+  border: 1px solid #cbd5e1;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.heatmap-info-button:hover {
+  background: #e8f4f7;
+}
+
+.heatmap-explanation {
+  margin-top: 12px;
+  padding: 10px;
+  background: #f0f7fa;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.heatmap-explanation p {
+  margin: 0 0 8px;
+}
+
+.heatmap-explanation p:last-child {
+  margin-bottom: 0;
+}
+
+
+.heatmap-selected-value {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #eef6f8;
+  font-size: 12px;
+}
+
+.heatmap-selected-value p {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 8px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.heatmap-selected-value span {
+  font-size: 11px;
+  opacity: 0.75;
+  line-height: 1.5;
+}
+
